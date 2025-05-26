@@ -32,7 +32,7 @@ This remains an unsolved problem, with others having attempted in the past:
 
 This work has transitioned to [s3-log-extraction](https://github.com/dandi/s3-log-extraction), which instead focuses on the development of efficient heuristics that extract only the minimal fields we desire for reporting summary activity with the public.
 
-As such, this repository will be left open to allow others to request its revival by opening an issue.
+As such, this repository will be left open to allow others to request its revival by [opening an issue](https://github.com/dandi/s3-log-parser/issues/new).
 
 Developed for the [DANDI Archive](https://dandiarchive.org/).
 
