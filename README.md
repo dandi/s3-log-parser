@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">DANDI S3 Log Parser</h3>
+  <h1 align="center">S3 Log Parser</h3>
   <p align="center">
     <a href="https://pypi.org/project/dandi_s3_log_parser/"><img alt="Ubuntu" src="https://img.shields.io/badge/Ubuntu-E95420?style=flat&logo=ubuntu&logoColor=white"></a>
     <a href="https://pypi.org/project/dandi_s3_log_parser/"><img alt="Supported Python versions" src="https://img.shields.io/pypi/pyversions/dandi_s3_log_parser.svg"></a>
