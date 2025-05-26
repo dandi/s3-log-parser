@@ -7,7 +7,7 @@
   </p>
   <p align="center">
     <a href="https://pypi.org/project/dandi_s3_log_parser/"><img alt="PyPI latest release version" src="https://badge.fury.io/py/dandi_s3_log_parser.svg?id=py&kill_cache=1"></a>
-    <a href="https://github.com/catalystneuro/dandi_s3_log_parser/blob/main/license.txt"><img alt="License: BSD-3" src="https://img.shields.io/pypi/l/dandi_s3_log_parser.svg"></a>
+    <a href="https://github.com/dandi/s3-log-parser/blob/main/license.txt"><img alt="License: BSD-3" src="https://img.shields.io/pypi/l/dandi_s3_log_parser.svg"></a>
   </p>
   <p align="center">
     <a href="https://github.com/psf/black"><img alt="Python code style: Black" src="https://img.shields.io/badge/python_code_style-black-000000.svg"></a>
@@ -15,18 +15,28 @@
   </p>
 </p>
 
-Extraction of minimal information from consolidated raw S3 logs for public sharing and plotting.
+This project was an attempt at rigorous parsing of full information from raw S3 logs.
+
+This remains an unsolved problem, with others having attempted in the past:
+  - [joswr1ight: s3logparse](https://github.com/joswr1ght/s3logparse/tree/main)
+    - Unmaintained for 4 years.
+    - Minimally tested: https://github.com/joswr1ght/s3logparse/blob/4df6a40e11420c132420336f09ef4604c67cc171/tests/s3logparse_test.py
+    - Biggest weakness is it [reads the entire log file at once](https://github.com/joswr1ght/s3logparse/blob/4df6a40e11420c132420336f09ef4604c67cc171/s3logparse.py#L144), which is sufficient to crash most systems due to some of our files being larger than most RAM chips available.
+  - [cocoonlife: s3-log-parse](https://github.com/cocoonlife/s3-log-parse) (imported as `s3logparse`, just to add confusion with above)
+    - Unmaintained for 6 years.
+    - Used for a while in the built-in DANDI archive 'download counter'.
+    -  Untested and unvalidated.
+    -  Difficult to install in modern environments: https://github.com/cocoonlife/s3-log-parse/issues/4
+    - Suffers from some of the same parsing errors we encounter on our worst URIs: https://github.com/cocoonlife/s3-log-parse/issues/1
+    -  Also [reads the entire log file at once](https://github.com/cocoonlife/s3-log-parse/blob/c19954bde2913b439c20d8f8bb3a22c9490e4b62/s3logparse/cli.py#L21), which is sufficient to crash most systems due to some of our files being larger than most RAM chips available.
+
+This work has transitioned to [s3-log-extraction](https://github.com/dandi/s3-log-extraction), which instead focuses on the development of efficient heuristics that extract only the minimal fields we desire for reporting summary activity with the public.
+
+As such, this repository will be left open to allow others to request its revival by opening an issue.
 
 Developed for the [DANDI Archive](https://dandiarchive.org/).
 
 Read more about [S3 logging on AWS](https://web.archive.org/web/20240807191829/https://docs.aws.amazon.com/AmazonS3/latest/userguide/LogFormat.html).
-
-A few summary facts as of 2024:
-
-- A single line of a raw S3 log file can be between 400-1000+ bytes.
-- Some of the busiest daily logs on the archive can have around 5,014,386 lines.
-- There are more than 6 TB of log files collected in total.
-- This parser reduces that total to less than 25 GB of final essential information on NWB assets (Zarr size TBD).
 
 
 
@@ -52,8 +62,6 @@ Filter out:
 
 Then, only limit data extraction to a handful of specified fields from each full line of the raw logs; by default, `object_key`, `timestamp`, `ip_address`, and `bytes_sent`.
 
-In the summer of 2024, this reduced 6 TB of raw logs to less than 170 GB.
-
 The process is designed to be easily parallelized and interruptible, meaning that you can feel free to kill any processes while they are running and restart later without losing most progress.
 
 ### 2. **Binning**
@@ -62,13 +70,9 @@ To make the mapping to Dandisets more efficient, the reduced logs are binned by 
 
 This step reduces the total file sizes from step (1) even further by reducing repeated object keys, though it does create a large number of small files.
 
-In the summer of 2024, this brought 170 GB of reduced logs down to less than 80 GB (20 GB of `blobs` spread across 253,676 files and 60 GB of `zarr` spread across 4,775 files).
-
 ### 3. **Mapping**
 
 The final step, which should be run periodically to keep the desired usage logs per Dandiset up to date, is to scan through all currently known Dandisets and their versions, mapping the asset blob IDs to their filenames and generating the most recently parsed usage logs that can be shared publicly.
-
-In the summer of 2024, this brought 80 GB of binned logs down to around 20 GB of Dandiset logs.
 
 
 
@@ -87,19 +91,6 @@ reduce_all_dandi_raw_s3_logs \
   --excluded_ips < comma-separated list of known IPs to exclude >
 ```
 
-For example, on Drogon:
-
-```bash
-reduce_all_dandi_raw_s3_logs \
-  --raw_s3_logs_folder_path /mnt/backup/dandi/dandiarchive-logs \
-  --reduced_s3_logs_folder_path /mnt/backup/dandi/dandiarchive-logs-reduced \
-  --maximum_number_of_workers 3 \
-  --maximum_buffer_size_in_mb 3000 \
-  --excluded_ips < Drogons IP >
-```
-
-In the summer of 2024, this process took less than 10 hours to process all 6 TB of raw log data (using 3 workers at 3 GB buffer size).
-
 ### Binning
 
 To bin:
@@ -108,14 +99,6 @@ To bin:
 bin_all_reduced_s3_logs_by_object_key \
   --reduced_s3_logs_folder_path < reduced S3 logs folder path > \
   --binned_s3_logs_folder_path < binned S3 logs folder path >
-```
-
-For example, on Drogon:
-
-```bash
-bin_all_reduced_s3_logs_by_object_key \
-  --reduced_s3_logs_folder_path /mnt/backup/dandi/dandiarchive-logs-reduced \
-  --binned_s3_logs_folder_path /mnt/backup/dandi/dandiarchive-logs-binned
 ```
 
 This process is not as friendly to random interruption as the reduction step is. If corruption is detected, the target binning folder will have to be cleaned before re-attempting.
@@ -128,9 +111,7 @@ bin_all_reduced_s3_logs_by_object_key \
   --binned_s3_logs_folder_path /mnt/backup/dandi/dandiarchive-logs-binned \
 ```
 
-In the summer of 2024, this process took less than 5 hours to bin all 170 GB of reduced logs into the 80 GB of data per object key.
-
-### Mapping
+### Mapping to Dandisets
 
 #### Required Environment Variables
 
@@ -178,41 +159,6 @@ map_binned_s3_logs_to_dandisets \
   --excluded_dandisets < comma-separated list of six-digit IDs to exclude > \
   --restrict_to_dandisets < comma-separated list of six-digit IDs to restrict mapping to >
 ```
-
-For example, on Drogon:
-
-```bash
-map_binned_s3_logs_to_dandisets \
-  --binned_s3_logs_folder_path /mnt/backup/dandi/dandiarchive-logs-binned \
-  --mapped_s3_logs_folder_path /mnt/backup/dandi/dandiarchive-logs-mapped \
-  --excluded_dandisets 000108
-```
-
-In the summer of 2024, this blobs process took less than 8 hours to complete (with caches; 10 hours without caches) with one worker.
-
-Some Dandisets may take disproportionately longer than others to process. For this reason, the command also accepts `--excluded_dandisets` and `--restrict_to_dandisets`.
-
-This is strongly suggested for skipping `000108` in the main run and processing it separately (possibly on a different CRON cycle altogether).
-
-```bash
-map_binned_s3_logs_to_dandisets \
-  --binned_s3_logs_folder_path /mnt/backup/dandi/dandiarchive-logs-binned \
-  --mapped_s3_logs_folder_path /mnt/backup/dandi/dandiarchive-logs-mapped \
-  --restrict_to_dandisets 000108
-```
-
-In the summer of 2024, this took less than 15 hours to complete.
-
-The mapping process can theoretically be designed to work in parallel (and thus much faster), but this would take some effort to design. If interested, please open an issue to request this feature.
-
-To then generate summaries and totals (for ease and efficiency of frontend reporting tools):
-
-```bash
-generate_all_dandiset_totals --mapped_s3_logs_folder_path < mapped Dandiset logs folder >
-generate_archive_summaries --mapped_s3_logs_folder_path < mapped Dandiset logs folder >
-update_region_codes_to_coordinates --mapped_s3_logs_folder_path < mapped Dandiset logs folder >
-```
-
 
 
 ## Submit line decoding errors
